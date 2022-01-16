@@ -8,7 +8,7 @@
   <meta name="description" content="">
   <meta name="author" content="Rhein">
   <!-- Open Graph Data -->
-  <meta property="og:title" content="snakeyaml"/>
+  <meta property="og:title" content="【未完成】从一个真实的案例看snakeyaml反序列化漏洞"/>
   <meta property="og:description" content="" />
   <meta property="og:site_name" content="Rhein&#39;s Blog"/>
   <meta property="og:type" content="article" />
@@ -47,7 +47,7 @@
     <div class="row">
       <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
         <div class="page-title with-background-image">
-          <p class="title">snakeyaml</p>
+          <p class="title">【未完成】从一个真实的案例看snakeyaml反序列化漏洞</p>
           <p class="subtitle"></p>
         </div>
         <div class="site-menu with-background-image">
@@ -104,7 +104,7 @@
           <!-- Date -->
           <span class="date-time info">On
             <span class="date">2022-01-16</span>
-            <span class="time">20:49:51</span>
+            <span class="time">21:44:37</span>
           </span>
           
           <!--  Categories  -->
@@ -126,11 +126,10 @@
         
         <!-- Post Main Content -->
         <div class="post-content">
-          <p>snakeyaml 反序列化教程</p>
+          <p>最近碰到一个产品在使用snakeyaml时，使用黑名单的方式对yaml进行校验。这篇文章记录下绕过黑名单实现RCE的整个过程。</p>
 <span id="more"></span>
 
-<h2 id="snakeyaml简介"><a href="#snakeyaml简介" class="headerlink" title="snakeyaml简介"></a>snakeyaml简介</h2><p>snakeyaml 是 java 中常用来处理 yaml 格式文件的库。</p>
-<figure class="highlight plaintext"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">alert(&#x27;Hello World!&#x27;);</span><br></pre></td></tr></table></figure>
+<h2 id="snakeyaml漏洞简介"><a href="#snakeyaml漏洞简介" class="headerlink" title="snakeyaml漏洞简介"></a>snakeyaml漏洞简介</h2><p>snakeyaml反序列化漏洞的基本原理就不再赘述了，网上有很多的分析文章。如果不了解的，可以看下这篇文章：<a target="_blank" rel="noopener" href="https://www.mi1k7ea.com/2019/11/29/Java-SnakeYaml%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96%E6%BC%8F%E6%B4%9E/">Java SnakeYaml反序列化漏洞</a>。</p>
 
         </div>
       </div>
